@@ -18,6 +18,7 @@
 # ======================================================================================================================
 
 import argparse
+import ast
 import datetime
 import json
 import os
@@ -25,6 +26,7 @@ import random
 import re
 import time
 import warnings
+from collections import Counter
 from typing import Any, Callable, Dict, List, Tuple
 
 import torch
@@ -114,9 +116,12 @@ def _extract_answer(solution_str: str) -> str | None:
     Returns:
         The stripped content of the last answer tag, or None if there is no answer tag.
     """
-    ### YOUR CODE HERE ###
-    pass
-    ### END YOUR CODE ###
+    if not isinstance(solution_str, str):
+        return None
+    matches = list(re.finditer(r"<answer>(.*?)</answer>", solution_str, flags=re.DOTALL))
+    if not matches:
+        return None
+    return matches[-1].group(1).strip()
 
 
 def _validate_numbers(equation_str: str, available_numbers: List[int]) -> bool:
@@ -134,9 +139,14 @@ def _validate_numbers(equation_str: str, available_numbers: List[int]) -> bool:
     Returns:
         True if the equation only uses available numbers (each at most once), False otherwise.
     """
-    ### YOUR CODE HERE ###
-    pass
-    ### END YOUR CODE ###
+    try:
+        if not isinstance(equation_str, str):
+            return False
+        used = Counter(int(n) for n in re.findall(r"\d+", equation_str))
+        available = Counter(int(n) for n in available_numbers)
+        return all(count <= available[number] for number, count in used.items())
+    except Exception:
+        return False
 
 
 def _evaluate_equation(equation_str: str) -> float | None:
@@ -151,9 +161,21 @@ def _evaluate_equation(equation_str: str) -> float | None:
     Returns:
         The value of the equation as a float, or None if it is invalid or unsafe.
     """
-    ### YOUR CODE HERE ###
-    pass
-    ### END YOUR CODE ###
+    try:
+        if not isinstance(equation_str, str) or not equation_str.strip():
+            return None
+        equation_str = equation_str.strip()
+        if re.fullmatch(r"[0-9\s+\-*/()]+", equation_str) is None:
+            return None
+        tree = ast.parse(equation_str, mode="eval")
+        allowed = (ast.Expression, ast.BinOp, ast.UnaryOp, ast.Constant,
+                   ast.Add, ast.Sub, ast.Mult, ast.Div, ast.UAdd, ast.USub)
+        if any(not isinstance(node, allowed) for node in ast.walk(tree)):
+            return None
+        value = eval(compile(tree, "<equation>", "eval"), {"__builtins__": {}}, {})
+        return float(value) if isinstance(value, (int, float)) else None
+    except Exception:
+        return None
 
 
 # ======================================================================================================================
@@ -172,9 +194,18 @@ def reward_fn(generated_text: str, ground_truth: Dict) -> float:
     Returns:
         1.0, 0.1 or 0.0.
     """
-    ### YOUR CODE HERE ###
-    pass
-    ### END YOUR CODE ###
+    equation = _extract_answer(generated_text)
+    if equation is None:
+        return 0.0
+    try:
+        if not _validate_numbers(equation, ground_truth["numbers"]):
+            return 0.1
+        value = _evaluate_equation(equation)
+        if value is None:
+            return 0.1
+        return 1.0 if abs(value - ground_truth["target"]) <= 1e-6 else 0.1
+    except Exception:
+        return 0.1
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -519,8 +550,8 @@ def main() -> None:
         return [{"prompt": build_prompt(tokenizer, ex["nums"], ex["target"], max_tokens),
                  "answer": {"target": ex["target"], "numbers": ex["nums"]}} for ex in split]
 
-    train_examples = build_dataset(load_dataset("justinphan3110/Countdown-Tasks-3to4", split="train"))
-    eval_examples = build_dataset(load_dataset("justinphan3110/Countdown-Tasks-3to4", split="test"))
+    train_examples = build_dataset(load_dataset("longphann/Countdown-Tasks-3to4", split="train"))
+    eval_examples = build_dataset(load_dataset("longphann/Countdown-Tasks-3to4", split="test"))
 
     optimizer = torch.optim.AdamW(policy.parameters(), lr=args.lr, weight_decay=1e-2, betas=(0.9, 0.95))
     scheduler = get_constant_schedule_with_warmup(optimizer=optimizer, num_warmup_steps=0)

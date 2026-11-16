@@ -36,7 +36,7 @@ def main():
     sampling_params = SamplingParams(n=K, temperature=1.0, top_p=1.0, max_tokens=L, stop=["</answer>"],
                                      include_stop_str_in_output=True)
 
-    data = load_dataset("justinphan3110/Countdown-Tasks-3to4", split="test")
+    data = load_dataset("longphann/Countdown-Tasks-3to4", split="test")
     prompts = [build_prompt(tokenizer, ex["nums"], ex["target"], L) for ex in data]
     print(f"Generating {len(prompts)} x {K} responses...")
     outputs = llm.generate(prompts, sampling_params)
