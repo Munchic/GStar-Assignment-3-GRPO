@@ -320,9 +320,19 @@ def compute_group_normalized_advantages(
     # 7. Build the `metadata` dict of raw-reward statistics.
     advantages, raw_rewards, metadata = None, None, {}
     ### YOUR CODE HERE ###
-    pass
+    raw_rewards = torch.tensor(
+        [reward_fn(response, truth) for response, truth in zip(rollout_responses, repeated_ground_truths)],
+        dtype=torch.float32
+    )
+    grouped_r = raw_rewards.view(-1, group_size)
+    group_mean = grouped_r.mean(dim=1, keepdim=True)
+    advantages = grouped_r - group_mean
+    if normalize_by_std:
+        advantages /= (grouped_r.std(dim=1, keepdim=True) + advantage_eps)
+    metadata = {"mean": raw_rewards.mean(), "std": raw_rewards.std(),
+                "min": raw_rewards.min(), "max": raw_rewards.max()}
     ### END YOUR CODE ###
-    return advantages, raw_rewards, metadata
+    return advantages.flatten(), raw_rewards, metadata
 
 
 # ======================================================================================================================
