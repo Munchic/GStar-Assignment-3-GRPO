@@ -366,7 +366,13 @@ def compute_loss(
     """
     loss, metadata = None, {}
     ### YOUR CODE HERE ###
-    pass
+    ratio = torch.exp(policy_log_probs - old_log_probs)
+    clipped_ratio = torch.clamp(ratio, 1 - clip_range, 1 + clip_range)
+    unclip = advantages * ratio
+    clip = advantages * clipped_ratio
+    
+    loss = -torch.min(unclip, clip)
+    metadata = {"clip_fraction": (clipped_ratio != ratio).float().mean()}
     ### END YOUR CODE ###
     return loss, metadata
 
