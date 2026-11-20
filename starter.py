@@ -391,7 +391,10 @@ def masked_mean(tensor: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
         scalar loss
     """
     ### YOUR CODE HERE ###
-    pass
+    response_len = mask.sum(axis=1).clamp(min=1)  # protect against 0 len
+    loss_response = tensor * mask
+    loss = (loss_response.sum(axis=1) / response_len).mean()
+    return loss
     ### END YOUR CODE ###
 
 
@@ -408,7 +411,9 @@ def masked_mean_drgrpo(tensor: torch.Tensor, mask: torch.Tensor, num_tokens: int
         scalar loss
     """
     ### YOUR CODE HERE ###
-    pass
+    loss_response = tensor * mask
+    loss = (loss_response.sum(axis=1) / num_tokens).mean()
+    return loss
     ### END YOUR CODE ###
 
 
